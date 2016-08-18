@@ -5,23 +5,40 @@ class Payment < ActiveRecord::Base
   include Payment::PaymentEngineHandler
   include Payment::RequestRefundHandler
 
-  delegate :user, :project, :invalid_refund, to: :contribution
+  delegate :user, :project, :invalid_refund, :notify_to_backoffice, :is_donation?, :anonymous, to: :contribution
 
   belongs_to :contribution
   has_many :payment_notifications # to keep compatibility with catarse_pagarme
   has_many :payment_transfers
 
-  validates_presence_of :state, :key, :gateway, :payment_method, :value, :installments
+  validates_presence_of :state, :key, :gateway, :payment_method, :value, :installments, :contribution_id
   validate :value_should_be_equal_or_greater_than_pledge
   validate :project_should_be_online, on: :create
   validate :is_unique_within_period, on: :create
+
+  def self.slip_expiration_weekdays
+    connection.select_one("SELECT public.slip_expiration_weekdays()")['slip_expiration_weekdays'].to_i;
+  end
+
+  def slip_expiration_date
+    # If payment does not exist gives expiration date based on current_timestamp
+    if self.id.nil?
+      self.class.connection.select_one("SELECT public.weekdays_from(public.slip_expiration_weekdays(), current_timestamp::timestamp)")['weekdays_from'].to_time;
+    else
+      pluck_from_database("slip_expires_at")
+    end
+  end
+
+  def slip_expired?
+    pluck_from_database("slip_expired")
+  end
 
   def is_unique_within_period
     errors.add(:payment, I18n.t('activerecord.errors.models.payment.duplicate')) if exists_duplicate?
   end
 
   def project_should_be_online
-    return if project && project.online?
+    return if project && project.open_for_contributions?
     errors.add(:project, I18n.t('contribution.project_should_be_online'))
   end
 
@@ -32,6 +49,9 @@ class Payment < ActiveRecord::Base
 
   scope :waiting_payment, -> { where('payments.waiting_payment') }
 
+  def waiting_payment?
+    pluck_from_database("waiting_payment")
+  end
 
   # Check current status on pagarme and
   # move pending payment to deleted state
@@ -92,7 +112,8 @@ class Payment < ActiveRecord::Base
     end
 
     event :pay do
-      transition [:pending, :pending_refund] => :paid
+      transition [:pending, :pending_refund, :chargeback, :refunded] => :paid,
+        unless: ->(payment) { payment.is_donation? }
     end
 
     event :refuse do
@@ -106,6 +127,7 @@ class Payment < ActiveRecord::Base
     event :refund do
       transition [:pending_refund, :paid, :deleted] => :refunded
     end
+
 
     after_transition do |payment, transition|
       payment.notify_observers :"from_#{transition.from}_to_#{transition.to}"
@@ -125,5 +147,9 @@ class Payment < ActiveRecord::Base
       where(payment_method: self.payment_method, value: self.value).
       where("current_timestamp - payments.created_at < '#{DUPLICATION_PERIOD}'::interval").
       exists?
+  end
+
+  def pluck_from_database field
+    Payment.where(id: self.id).pluck("payments.#{field}").first
   end
 end

@@ -7,36 +7,37 @@ var App = window.App = Skull.View.extend({
     "click a.mobile-menu-link" : "mobileMenu",
     "click .zendesk_widget" : "showWidget",
     "click #pg_search_submit" : "searchProject",
-    'click .btn-dashboard' : 'toggleNav'
+    "click #header_login_btn": "header_login_btnClick"
+  },
+
+  header_login_btnClick: function() {
+    CatarseAnalytics.oneTimeEvent({cat:'account_login',act:'login_headerbtn_click'});
   },
 
   openAlert: function(){
     if($('#global-alert').length === 0 || this.$('body').data('mobile')){
       return;
     }
-    if(!window.store.get('globalClosedCookies')){
-      $('#global-alert').show();
-      $('body').css('padding-top', '30px');
-      $('#global-alert')
-        .css('z-index', '100');
+    if($('#fixed-alert').length > 0 && !this.$('body').data('mobile')){
+      $('#fixed-alert').addClass('fixed-alert-visible');
+      $('.main-header, .hero-search').addClass('with-fixed-alert');
+      this.fixedAlert = true;
     }
-    else{
-      this.closeAlert();
+    if(!window.store.get('newestGlobalClosedStore')){
+      $('#global-alert').slideDown(400);
+      $('.main-header').addClass('with-global-alert');
+      if(this.fixedAlert){
+        $('.main-header, #global-alert').addClass('with-two-alerts');
+      }
     }
-  },
 
-  toggleNav: function(){
-    $(".body-project").toggleClass("closed");
-    $(".dashboard-nav.side").toggle("slide", { direction: "left" }, 250);
-    $(".btn-dashboard").toggleClass("closed fa-cog");
-    $(".btn-dashboard").toggleClass("open fa-chevron-left");
-    return false;
   },
 
   closeAlert: function(event){
-    $('body').css('padding-top', '0');
-    $('#global-alert').slideUp('slow');
-    window.store.set('globalClosedCookies', true);
+    $('#global-alert').slideUp(400);
+    $('.main-header').removeClass('with-global-alert').removeClass('with-two-alerts');
+    window.store.set('newestGlobalClosedStore', true);
+    this.globalAlert = false;
   },
 
   searchProject: function(){
@@ -58,6 +59,7 @@ var App = window.App = Skull.View.extend({
     Backbone.history.start({pushState: false});
     this.maskAllElements();
     this.applyErrors();
+    window.CatarseMixpanel.activate();
   },
 
   flash: function() {
@@ -100,7 +102,7 @@ var App = window.App = Skull.View.extend({
   },
 
   isMobile: function(){
-    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); 
+    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     return isMobile;
   }
 

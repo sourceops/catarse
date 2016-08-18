@@ -10,6 +10,8 @@ class Contribution < ActiveRecord::Base
   belongs_to :reward
   belongs_to :user
   belongs_to :country
+  belongs_to :donation
+  belongs_to :origin
   has_many :payment_notifications
   has_many :payments
   has_many :details, class_name: 'ContributionDetail'
@@ -17,14 +19,9 @@ class Contribution < ActiveRecord::Base
   validates_presence_of :project, :user, :value, :payer_email
   validates_numericality_of :value, greater_than_or_equal_to: 10.00
 
-  scope :by_id, ->(id) { where(id: id) }
-  scope :anonymous, -> { where(anonymous: true) }
   scope :not_anonymous, -> { where(anonymous: false) }
   scope :confirmed_last_day, -> { where("EXISTS(SELECT true FROM payments p WHERE p.contribution_id = contributions.id AND p.state = 'paid' AND (current_timestamp - p.paid_at) < '1 day'::interval)") }
-  scope :can_cancel, -> { where(can_cancel: true) }
-
-  # Contributions already refunded or with requested_refund should appear so that the user can see their status on the refunds list
-  scope :can_refund, ->{ where(can_refund: true) }
+  scope :was_confirmed, -> { where("contributions.was_confirmed") }
 
   scope :available_to_display, -> {
     where("EXISTS (SELECT true FROM payments p WHERE p.contribution_id = contributions.id AND p.state NOT IN ('deleted', 'refused'))")
@@ -44,6 +41,7 @@ class Contribution < ActiveRecord::Base
       join contribution_details cd on cd.contribution_id = contributions.id
       ").where("
       cd.project_state = 'failed'
+      and contributions.donation_id is null
       and cd.state = 'paid'
       and lower(cd.gateway) = 'pagarme'
       and lower(cd.payment_method) = 'boletobancario'
@@ -56,39 +54,49 @@ class Contribution < ActiveRecord::Base
     user.recommended_projects.where("projects.id <> ?", project.id).order("count DESC")
   end
 
+  def international?
+    !(country.name == 'Brasil')
+  end
+
   def change_reward! reward
     self.reward_id = reward
     self.save
-  end
-
-  def can_refund?
-    confirmed? && project.failed?
   end
 
   def confirmed?
     @confirmed ||= Contribution.where(id: self.id).pluck('contributions.is_confirmed').first
   end
 
-  def invalid_refund
-    notify_to_contributor(:invalid_refund)
+  def over_refund_limit?
+    notifications.where(template_name: 'invalid_refund').count > 2
   end
 
-  def available_rewards
-    project.rewards.where('minimum_value <= ?', self.value).order(:minimum_value)
+  def was_confirmed?
+    @was_confirmed ||= Contribution.where(id: self.id).pluck('contributions.was_confirmed').first
+  end
+
+  def slip_payment?
+    payments.last.slip_payment?
+  end
+
+  def is_donation?
+    donation.present?
+  end
+
+  def invalid_refund
+    notify(:invalid_refund, self.user)
+    if over_refund_limit?
+      backoffice_user = User.find_by(email: CatarseSettings[:email_contact])
+      notify_to_backoffice(:over_refund_limit, {from_email: self.user.email}, backoffice_user )
+    end
   end
 
   def notify_to_contributor(template_name, options = {})
     notify_once(template_name, self.user, self, options)
   end
 
-  def notify_to_backoffice(template_name, options = {})
-    return if CatarseSettings[:email_payments].nil?
-    _user = User.find_by(email: CatarseSettings[:email_payments])
-    notify_once(template_name, _user, self, options) if _user
-  end
-
-  def self.payment_method_names
-    ['Pagarme', 'PayPal', 'MoIP']
+  def notify_to_backoffice(template_name, options = {}, backoffice_user = User.find_by(email: CatarseSettings[:email_payments]))
+    notify_once(template_name, backoffice_user, self, options) if backoffice_user
   end
 
   def pending?

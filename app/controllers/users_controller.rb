@@ -6,6 +6,22 @@ class UsersController < ApplicationController
   defaults finder: :find_active!
   actions :show, :update, :unsubscribe_notifications, :destroy, :edit
   respond_to :json, only: [:contributions, :projects]
+  before_action :referral_it!, only: [:show]
+
+  def balance
+    authorize resource, :update?
+  end
+
+  def follow_fb_friends
+    authorize current_user, :update?
+    if params[:follow_user_id] && current_user.followers.pluck(:user_id).include?(params[:follow_user_id].to_i)
+      api = ApiWrapper.new current_user
+      api.request("user_follows", {
+        body: { follow_id: params[:follow_user_id] }.to_json,
+        action: :post
+      }).run()
+    end
+  end
 
   def destroy
     authorize resource
@@ -54,6 +70,21 @@ class UsersController < ApplicationController
     redirect_to root_path
   end
 
+  def new_password
+    authorize resource
+
+    if params[:password]
+      @user.password = params[:password]
+      if @user.save
+        render :json => { :success => 'OK' }
+      else
+        render status: 400, :json => { :errors => @user.errors.full_messages  }
+      end
+    else
+      render status: 400, :json => { :errors => ['Missing parameter password'] }
+    end
+  end
+
   def edit
     authorize resource
     @unsubscribes = @user.project_unsubscribes
@@ -89,7 +120,7 @@ class UsersController < ApplicationController
   end
 
   def category_followers_params_given?
-    permitted_params[:category_followers_attributes].present?
+    params.include?(:category_followers_form)
   end
 
   def password_params_given?
@@ -101,9 +132,12 @@ class UsersController < ApplicationController
   end
 
   def update_reminders
-    @user.projects_in_reminder.each do |project|
-      unless params[:user][:reminders] && params[:user][:reminders].find {|p| p['project_id'] == project.id.to_s}
-        project.delete_from_reminder_queue(@user.id)
+    if params[:user][:reminders]
+      params[:user][:reminders].keys.each do |project_id|
+        if params[:user][:reminders][:"#{project_id}"] == "false"
+          Project.find(project_id).delete_from_reminder_queue(@user.id)
+          @user.reminders.where(project_id: project_id).destroy_all
+        end
       end
     end
   end

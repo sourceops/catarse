@@ -5,39 +5,27 @@
 
 | Uhuu, #{project.user.name},
 br/
-| Parabéns pela campanha!
+p Parabéns pela campanha!
+p O projeto #{link_to project.name, project_link} foi financiado!
+p
+  | Depois de comemorar com vontade o término bem sucedido da sua campanha, <strong>é hora de confirmar os seus dados bancários</strong> para que possamos fazer a transferência do dinheiro para você! Você pode fazer isso direto da página do seu projeto (ou também, clicando no botão abaixo).
 br/
 br/
-| O projeto #{link_to project.name, project_link} foi financiado!
+center
+  = link_to('Confirme os dados bancários', insights_project_url(project.id, ref: 'notificacao_project_success'), style:'border: 1px solid #7cc142; border-radius: 5px; color: #fff; text-decoration: none; font-weight: bolder; text-align: center; padding: 19px 60px; background: #65bf1b; font-size: 15px;')
+
+br/
+p
+  | Após a confirmação dos dados, o valor arrecadado estará disponível na sua conta bancária em até <strong>10 dias úteis.</strong>
+
+p
+  = link_to 'Confira mais detalhes de como será feito o repasse?', 'http://suporte.catarse.me/hc/pt-br/articles/202037493-Como-ser%C3%A1-feito-o-repasse-do-dinheiro-', target: '__blank'
+p
+  | Se ficou com alguma dúvida, responda a esta mensagem diretamente ou fale conosco através do e-mail #{mail_to CatarseSettings[:email_projects]}. Caso precise falar via telefone estaremos a disposição de segunda à sexta das 14h às 18h no telefone  (11) 98414-0090.
+p
+  | Um abraço apertado de parabéns!
 br/
 br/
-| Depois de comemorar com vontade o término bem sucedido da sua campanha, é hora de voltar ao trabalho!
-'  Reunimos aqui algumas <strong>informações importantíssimas para essa nova etapa!</strong>
+| Abraços
 br/
-br/
-| <strong>1</strong> - O valor arrecadado estará disponível na sua conta bancária  até o <strong>dia #{10.weekdays_from(project.expires_at).strftime('%d/%m/%Y')}</strong>
-br/
-| <strong>ATENÇÃO</strong>: Para fazer o repasse utilizaremos as informações cadastrais e bancárias preenchidas na aba Conta do painel de controle do seu projeto. <strong>Certifique-se de que os dados estão corretos</strong>.
-br/
-strong Confira:
-= link_to 'Como será feito o repasse?', 'http://suporte.catarse.me/hc/pt-br/articles/202037493-Como-ser%C3%A1-feito-o-repasse-do-dinheiro-', target: '__blank'
-br/
-br/
-| 2 - <strong>Organização é tudo!</strong> Na <strong>aba Relatórios</strong>, baixe planilhas com as <strong>informações sobre os seus apoiadores</strong> e comece a organizar a <strong>entrega das recompensas!</strong> 
-br/
-br/
-= image_tag 'https://s3.amazonaws.com/cdn.catarse/notifications_assets/reports.gif', width: 600
-br/
-br/
-| <strong>3 - Converse com seus apoiadores hoje, amanhã e sempre!</strong> As pessoas demonstraram respeito por você ao te apoiar financeiramente e esperam o mesmo em troca. <strong>A Aba de novidades</strong> ficará disponível para sempre. <strong>Procure fazer postagens de maneira recorrente</strong> mantendo seus apoiadores informados sobre o andamento do projeto. 
-br/
-br/
-= image_tag 'https://s3.amazonaws.com/cdn.catarse/notifications_assets/post.gif', width: 600
-br/
-br/
-| Se ficou com alguma dúvida, responda a esta mensagem diretamente ou fale conosco através do e-mail #{mail_to CatarseSettings[:email_projects]}. Caso precise falar via telefone estaremos a disposição de segunda à sexta das 14h às 18h no telefone  (11) 98414-0173.
-br/
-br/
-| Um abraço apertado de parabéns!
-br/
-| A equipe do #{company_name} está vibrando com você!!!!
+| #{company_name}

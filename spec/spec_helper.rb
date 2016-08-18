@@ -4,7 +4,7 @@ RSpec.configure do |config|
   config.disable_monkey_patching!
   config.order = :random
   Kernel.srand config.seed
-  Zonebie.set_random_timezone
+  timezone = Zonebie.set_random_timezone
   config.filter_run focus: true
   config.run_all_when_everything_filtered = true
   config.expect_with :rspec do |expectations|
@@ -20,9 +20,11 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     con = ActiveRecord::Base.connection
-    con.execute "SET client_min_messages TO warning;"
-    con.execute "SET timezone TO 'utc';"
-    con.execute %{SET search_path TO "$user", public, "1", "postgrest";}
+    con.execute %{
+    SET client_min_messages TO warning;
+    SET timezone TO 'utc';
+    SET search_path TO "$user", public, "1", "postgrest";
+    }
     current_user = con.execute("SELECT current_user;")[0]["current_user"]
     con.execute %{ALTER USER #{current_user} SET search_path TO "$user", public, "1", "postgrest";}
     DatabaseCleaner.clean_with :truncation
@@ -32,8 +34,23 @@ RSpec.configure do |config|
     FakeWeb.register_uri(:get, "http://vimeo.com/api/v2/video/17298435.json", response: fixture_path('vimeo_default_json_request.txt'))
     FakeWeb.register_uri(:get, "http://vimeo.com/17298435", response: fixture_path('vimeo_default_request.txt'))
     FakeWeb.register_uri(:get, "http://www.youtube.com/watch?v=Brw7bzU_t4c", response: fixture_path("youtube_request.txt"))
-    UserTotal.refresh_view
-    Statistics.refresh_view
+    con.execute %{
+    SET statement_timeout TO 0;
+    REFRESH MATERIALIZED VIEW statistics;
+    REFRESH MATERIALIZED VIEW user_totals;
+    }
+    con.execute %{
+    INSERT INTO public.project_states (state, state_order) VALUES
+    ('deleted', 'archived'),
+    ('rejected', 'created'),
+    ('draft', 'created'),
+    ('in_analysis', 'created'),
+    ('approved', 'publishable'),
+    ('online', 'published'),
+    ('waiting_funds', 'published'),
+    ('failed', 'finished'),
+    ('successful', 'finished');
+    }
   end
 
   config.before(:each) do
@@ -65,7 +82,6 @@ RSpec.configure do |config|
     allow(Sidekiq::ScheduledSet).to receive(:new).and_return({})
     allow_any_instance_of(User).to receive(:subscribe_to_newsletter_list).and_return(true)
     allow_any_instance_of(Project).to receive(:subscribe_to_list).and_return(true)
-    allow_any_instance_of(ProjectObserver).to receive(:after_create)
     allow_any_instance_of(UserObserver).to receive(:after_create)
     allow_any_instance_of(Project).to receive(:download_video_thumbnail)
     allow_any_instance_of(Calendar).to receive(:fetch_events_from)
@@ -76,9 +92,12 @@ RSpec.configure do |config|
     CatarseSettings[:base_domain] = 'localhost'
     CatarseSettings[:host] = 'localhost'
     CatarseSettings[:email_contact] = 'foo@bar.com'
+    CatarseSettings[:email_payments] = 'foo@bar.com'
     CatarseSettings[:email_projects] = 'foo@bar.com'
     CatarseSettings[:email_system] = 'system@catarse.me'
     CatarseSettings[:company_name] = 'Foo Bar Company'
+    CatarseSettings[:timezone] = ActiveSupport::TimeZone.find_tzinfo(timezone).name
+    CatarseSettings[:jwt_secret] = 'gZH75aKtMN3Yj0iPS4hcgUuTwjAzZr9C'
 
     CatarsePagarme.configure do |config|
       config.api_key = 'ak_test_XLoo19QDn9kg5JFGU70x12IA4NqbAv'

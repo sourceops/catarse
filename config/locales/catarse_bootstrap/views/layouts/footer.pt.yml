@@ -10,6 +10,7 @@ pt:
         start: 'Como funciona'
         expiring: Na reta final
         facebook: Facebook
+        team: Nosso time <3
         crowdfunding_stats: "Retrato FC Brasil 2013/2014"
         faq: Ajuda
         guides: Guia dos Realizadores
@@ -24,6 +25,10 @@ pt:
         submit: Comece seu projeto
         terms: Termos de uso
         twitter: Twitter
+        help_support: Central de Suporte
+        score: Populares
+        finished: Finalizados
+        online: No ar
       texts:
         copyleft: Feito com amor.
       titles:
@@ -32,4 +37,3 @@ pt:
         newsletter: Assine nossa news
         sitemap: Navegue
         social: Redes sociais
-

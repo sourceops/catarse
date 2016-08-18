@@ -17,14 +17,17 @@ br/
 | Confira o que pode acontecer depois dessa data:
 br/
 br/
-| <strong>1) Se o seu projeto já atingiu ou ultrapassou a meta:</strong>
-'  vamos apenas esperar o prazo para contabilizar esses apoios de última hora. Com esse processo finalizado, basta 
-= link_to 'repassar o valor arrecadado para você.', 'http://suporte.catarse.me/hc/pt-br/articles/202037493-Como-ser%C3%A1-feito-o-repasse-do-dinheiro-', target: '__blank' 
-br/
-br/
-| <strong>2) Se o seu projeto ainda não atingiu a meta:</strong> vamos esperar e torcer pela confirmação desses apoios! Atingindo 100% da meta iniciaremos o repasse do dinheiro para você.
-br/
-| Caso contrário iniciaremos o #{link_to 'reembolso dos seus apoiadores', 'http://suporte.catarse.me/hc/pt-br/articles/202365507-Regras-e-funcionamento-dos-reembolsos-estornos', target: '__blank'}.
+- if project.is_flexible?
+  | Estamos a esperar o prazo para contabilizar esses apoios de última hora. Com esse processo finalizado iremos repassar o valor arrecadado para você.
+- else
+  | <strong>1) Se o seu projeto já atingiu ou ultrapassou a meta:</strong>
+  '  vamos apenas esperar o prazo para contabilizar esses apoios de última hora. Com esse processo finalizado, basta 
+  = link_to 'repassar o valor arrecadado para você.', 'http://suporte.catarse.me/hc/pt-br/articles/202037493-Como-ser%C3%A1-feito-o-repasse-do-dinheiro-', target: '__blank'
+  br/
+  br/
+  | <strong>2) Se o seu projeto ainda não atingiu a meta:</strong> vamos esperar e torcer pela confirmação desses apoios! Atingindo 100% da meta iniciaremos o repasse do dinheiro para você.
+  br/
+  | Caso contrário iniciaremos o #{link_to 'reembolso dos seus apoiadores', 'http://suporte.catarse.me/hc/pt-br/articles/202365507-Regras-e-funcionamento-dos-reembolsos-estornos', target: '__blank'}.
 br/
 br/
 | <strong>ATENÇÃO:</strong> Para fazer o repasse utilizaremos as informações cadastrais e bancárias preenchidas na <strong>#{link_to 'aba Conta', edit_project_url(project, anchor: 'user_settings')}</strong> do seu projeto. <strong>Certifique-se de que os dados estão corretos.</strong>
@@ -33,7 +36,7 @@ br/
 = image_tag 'https://s3.amazonaws.com/cdn.catarse/notifications_assets/funded-conta.gif', width: 600
 br/
 br/
-| Se ficou com alguma dúvida, responda a esta mensagem diretamente ou fale conosco através do e-mail #{mail_to CatarseSettings[:email_projects]}. Caso precise falar via telefone estaremos a disposição de segunda à sexta das 14h às 18h no telefone  (11) 98414-0173.
+| Se ficou com alguma dúvida, responda a esta mensagem diretamente ou fale conosco através do e-mail #{mail_to CatarseSettings[:email_projects]}. Caso precise falar via telefone estaremos a disposição de segunda à sexta das 14h às 18h no telefone (11) 98414-0090.
 br/
 br/
 | Um abraço,

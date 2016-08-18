@@ -1,7 +1,7 @@
-App.addChild('MixPanel', {
-  el: 'body',
+var CatarseMixpanel = window.CatarseMixpanel = {
+  $el: $('body'),
 
-  activate: function(){
+  activate: function(){  
     this.VISIT_MIN_TIME = 4000;
     this.user = null;
     this.controller = this.$el.data('controller') || this.$el.data('controller-name');
@@ -15,7 +15,7 @@ App.addChild('MixPanel', {
   },
 
   projectProperties: function(){
-    return this.$('#project-header').data('stats');
+    return $("*[data-stats]").data("stats");
   },
 
   startTracking: function(){
@@ -27,26 +27,34 @@ App.addChild('MixPanel', {
       self.trackOnContributionStart();
     });
 
+    this.trackProjectDashboard = function(){
+      if(window.location.hash == '#reports'){
+        self.track('Project owner engaged with Catarse', _.extend(self.projectProperties(), {action: 'Visited reports'}));
+      }
+      if(window.location.hash == '#home'){
+        self.track('Project owner engaged with Catarse', _.extend(self.projectProperties(), {action: 'Visited insights'}));
+      }
+    };
+
     this.trackOnPage('projects', 'edit', function(){
       $(window).on('hashchange', function() {
-        if(window.location.hash == '#reports'){
-          self.track('Project owner engaged with Catarse', _.extend(self.projectProperties(), { action: 'Visited reports' }));
-        }
+        self.trackProjectDashboard();
       });
     });
 
-    this.trackOnPage('pages', 'show', function(){ 
+    this.trackOnPage('pages', 'show', function(){
       if(self.id == 'start'){
         self.track('Visited start page');
       }
     });
-    
+
 
     this.trackPageVisit('projects', 'new', 'Visited new project page');
     this.trackPageVisit('projects', 'index', 'Visited home');
     this.trackPageVisit('explore', 'index', 'Explored projects');
     this.trackPageLoad('contributions', 'edit', 'Selected reward');
     this.trackPageLoad('contributions', 'show', 'Finished Contribution')
+    this.trackProjectDashboard();
     this.trackContributions();
     this.trackPaymentChoice();
     this.trackTwitterShare();
@@ -62,7 +70,7 @@ App.addChild('MixPanel', {
 
   trackFollowCategory: function(){
     var self = this;
-    this.$('.category-follow .follow-btn').on('click', function(event){
+    $('.category-follow .follow-btn').on('click', function(event){
       self.track('Engaged with Catarse', { ref: $(event.currentTarget).data('title'), action: 'click follow category' });
       return true;
     });
@@ -71,11 +79,11 @@ App.addChild('MixPanel', {
   trackOnContributionStart: function(){
     var self = this;
 
-    this.$('.card-reward').on('click', function(event){
+    $('.card-reward').on('click', function(event){
       self.trackStartedContribution('Reward click');
     });
-    
-    this.$('#contribute_project_form').on('click', function(event){
+
+    $('#contribute_project_form').on('click', function(event){
       self.trackStartedContribution('Contribute button click');
     });
   },
@@ -86,8 +94,10 @@ App.addChild('MixPanel', {
 
   trackReminderClick: function(){
     var self = this;
-    this.$('#reminder:not([data-method])').on('click', function(event){
-      self.track('Engaged with Catarse', { ref: $(event.currentTarget).data('title'), action: 'click reminder' });
+    $('#project-reminder > a').on('click', function(event){
+      if(!$(event.target).hasClass('link-hidden-success')){
+        self.track('Engaged with Catarse', { ref: $(event.currentTarget).data('title'), action: 'click reminder' });
+      }
       return true;
     });
   },
@@ -104,7 +114,7 @@ App.addChild('MixPanel', {
         self = this;
     this.trackOnPage('contributions', 'new', function(){
       if(window.location.href.indexOf('reward_id') > -1){
-        from = 'Reward click';  
+        from = 'Reward click';
       } else {
         from = 'Contribute button click';
       }
@@ -114,9 +124,8 @@ App.addChild('MixPanel', {
 
   trackPaymentChoice: function(){
     var self = this;
-    this.$('#engine').on('click', '.back-payment-radio-button', function(){
+    $('#engine').on('click', '.back-payment-radio-button', function(){
       var choice = $('.back-payment-radio-button:checked').val();
-      console.log("Clicked payment");
       if(choice === 'slip'){
         self.track('Payment chosen', _.extend(self.projectProperties(), {payment_choice: 'BoletoBancario'}));
       }
@@ -142,14 +151,14 @@ App.addChild('MixPanel', {
   trackTwitterShare: function() {
     var self = this;
 
-    this.$('#twitter_share_button').on('click', function(event){
+    $('#twitter_share_button').on('click', function(event){
       self.track('Engaged with Catarse', { ref: $(event.currentTarget).data('title'), action: 'share twitter' });
     });
   },
 
   trackFacebookShare: function() {
     var self = this;
-    this.$('a#facebook_share').on('click', function(event){
+    $('a#facebook_share').on('click', function(event){
       self.track('Engaged with Catarse', { ref: $(event.currentTarget).data('title'), action: 'share facebook' });
     });
   },
@@ -220,23 +229,23 @@ App.addChild('MixPanel', {
       'host':               window.location.host,
       'from_page':          this.$el.data('referral')
     };
-    
+
     var opt = $.fn.extend(usr, opt, page, {project : ref});
-    
+
     mixpanel.track(text, opt);
   },
 
   mixPanelEvent: function(target, event, text, options){
     var self = this;
-    this.$(target).on(event, function(){
+    $(target).on(event, function(){
       self.track(text, options);
     });
   },
 
   trackVisit: function(eventName, options){
-    var self = this;
+    var self = this;  
     window.setTimeout(function(){
       self.track(eventName, options);
     }, this.VISIT_MIN_TIME);
   }
-});
+};

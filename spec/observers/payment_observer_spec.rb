@@ -15,6 +15,19 @@ RSpec.describe PaymentObserver do
     end
   end
 
+  describe "from_chargeback_to_paid" do
+    let(:payment) { create(:payment, state: 'chargeback') }
+
+    before do
+      create(:user, email: CatarseSettings[:email_payments])
+      payment.pay!
+    end
+
+    it "should notify backoffice when chargeback reverse" do
+      expect(ContributionNotification.where(template_name: 'chargeback_reverse', contribution: contribution).count).to eq 1
+    end
+  end
+
   describe "after_update" do
     context "when is confirmed" do
       let(:payment) do
@@ -32,6 +45,18 @@ RSpec.describe PaymentObserver do
       it("should send confirm_contribution notification") do
         expect(ContributionNotification.where(template_name: 'confirm_contribution', user: contribution.user, contribution: contribution).count).to eq 0
       end
+    end
+
+    context "when paid_at already filled" do
+      let(:payment) do
+        payment = create(:payment, payment_method: 'BoletoBancario', state: 'pending', paid_at: 4.days.ago)
+        payment.pay!
+        payment
+      end
+      it("should not send confirm_contribution notification") do
+        expect(ContributionNotification.where(template_name: 'confirm_contribution', user: contribution.user, contribution: contribution).count).to eq 0
+      end
+
     end
   end
 
@@ -78,6 +103,8 @@ RSpec.describe PaymentObserver do
   describe '#from_pending_refund_to_paid' do
     let(:admin){ create(:user) }
     before do
+      CatarseSettings[:email_contact] = 'contact@c.me'
+      @admin = create(:user, email: CatarseSettings[:email_contact])
       allow(payment).to receive(:can_do_refund?).and_return(true)
       expect(payment).to_not receive(:direct_refund)
       payment.notify_observers :from_pending_refund_to_paid
@@ -86,6 +113,15 @@ RSpec.describe PaymentObserver do
     context "when refund is invalid" do
       it "should send invalid refund notification" do
         expect(ContributionNotification.where(template_name: 'invalid_refund', user_id: payment.user.id).count).to eq 1
+      end
+    end
+    context "when refund fails more than twice" do
+      before do
+        payment.notify_observers :from_pending_refund_to_paid
+        payment.notify_observers :from_pending_refund_to_paid
+      end
+      it "should send over_limit notification" do
+        expect(ContributionNotification.where(template_name: 'over_refund_limit').count).to eq 1
       end
     end
   end
@@ -101,21 +137,8 @@ RSpec.describe PaymentObserver do
         payment.refuse!
       end
 
-      it "should notify admin and contributor" do
+      it "should notify contributor" do
         expect(ContributionNotification.where(template_name: 'contribution_canceled', user: contribution.user, contribution: contribution).count).to eq 1
-        expect(ContributionNotification.where(template_name: 'contribution_canceled_after_confirmed', user: @admin, contribution: contribution).count).to eq 1
-      end
-    end
-
-    context "when contribution is made with Boleto and canceled" do
-      before do
-        payment.update_attributes payment_method: 'BoletoBancario'
-        payment.refuse!
-      end
-
-      it "should notify admin and contributor" do
-        expect(ContributionNotification.where(template_name: 'contribution_canceled_slip', user: contribution.user, contribution: contribution).count).to eq 1
-        expect(ContributionNotification.where(template_name: 'contribution_canceled_after_confirmed', user: @admin, contribution: contribution).count).to eq 1
       end
     end
   end

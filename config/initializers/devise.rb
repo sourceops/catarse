@@ -206,7 +206,7 @@ Devise.setup do |config|
   # config.navigational_formats = ["*/*", :html]
 
   # The default HTTP method used to sign out a resource. Default is :delete.
-  config.sign_out_via = :delete
+  config.sign_out_via = :get
 
   # ==> OmniAuth
   # Add a new OmniAuth provider. Check the wiki for more information on setting
@@ -219,7 +219,7 @@ Devise.setup do |config|
     begin
       if ActiveRecord::Base.connection.table_exists? 'oauth_providers'
         OauthProvider.all.each do |p|
-          config.omniauth p.name, p.key, p.secret, scope: p.scope
+          config.omniauth p.name, p.key, p.secret, scope: p.scope, info_fields: 'email,name'
         end
       end
     rescue Exception => e

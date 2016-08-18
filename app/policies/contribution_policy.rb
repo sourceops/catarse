@@ -13,14 +13,30 @@ class ContributionPolicy < ApplicationPolicy
   end
 
   def new?
-    record.project.online?
+    record.project.open_for_contributions?
   end
 
   def create?
-    done_by_owner_or_admin? && record.project.online?
+    done_by_owner_or_admin? && record.project.open_for_contributions?
   end
 
   def update?
+    done_by_owner_or_admin?
+  end
+
+  def receipt?
+    done_by_owner_or_admin?
+  end
+
+  def second_slip?
+    done_by_owner_or_admin?
+  end
+
+  def no_account_refund?
+    done_by_owner_or_admin?
+  end
+
+  def toggle_anonymous?
     done_by_owner_or_admin?
   end
 

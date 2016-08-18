@@ -2,41 +2,22 @@ class ProjectDecorator < Draper::Decorator
   decorates :project
   include Draper::LazyHelpers
 
-  def remaining_text
-    pluralize_without_number(source.time_to_go[:time], I18n.t('remaining_singular'), I18n.t('remaining_plural'))
+  def show_city
+    if source.city.present?
+      source.city.show_name
+    elsif source.account && source.account.address_city.present? && source.account.address_state.present?
+      "#{source.account.address_city.capitalize}, #{source.account.address_state} "
+    elsif source.user.address_city.present? && source.user.address_state.present?
+      "#{source.user.address_city.capitalize}, #{source.user.address_state} "
+    end
   end
 
-  def state_warning_template
-    "#{source.state}_warning"
+  def elapsed_time
+    get_interval_from_db "elapsed_time_json"
   end
 
   def time_to_go
-    time_and_unit = nil
-    %w(day hour minute second).detect do |unit|
-      time_and_unit = time_to_go_for unit
-    end
-    time_and_unit || time_and_unit_attributes(0, 'second')
-  end
-
-  def remaining_days
-    source.time_to_go[:time]
-  end
-
-  def display_card_class
-    default_card = "card u-radius zindex-10"
-    aditional = ""
-    if source.waiting_funds?
-      aditional = 'card-waiting'
-    elsif source.successful?
-      aditional = 'card-success'
-    elsif source.failed?
-      aditional = 'card-error'
-    elsif source.draft? || source.in_analysis? || source.approved?
-      aditional = 'card-dark'
-    else
-      default_card = ""
-    end
-    "#{default_card} #{aditional}"
+    get_interval_from_db "remaining_time_json"
   end
 
   def display_status
@@ -56,11 +37,7 @@ class ProjectDecorator < Draper::Decorator
   end
 
   def display_expires_at
-    source.expires_at ? I18n.l(source.expires_at.in_time_zone.to_date) : ''
-  end
-
-  def display_online_date
-    source.online_date ? I18n.l(source.online_date.to_date) : ''
+    source.expires_at ? I18n.l(source.pluck_from_database('zone_expires_at').to_date) : ''
   end
 
   def progress
@@ -76,8 +53,8 @@ class ProjectDecorator < Draper::Decorator
     number_to_currency source.pledged, precision: 2
   end
 
-  def status_icon_for group_name
-    if source.errors.present?
+  def status_icon_for group_name, action_name = nil
+    if source.errors.present? && ( ['send_to_analysis', 'publish', 'validate_publish'].include? action_name )
       has_error = source.errors.any? do |error|
         source.error_included_on_group?(error, group_name)
       end
@@ -91,7 +68,6 @@ class ProjectDecorator < Draper::Decorator
   end
 
   def display_errors group_name
-    #source.valid?
     if source.errors.present?
       error_messages = ''
       source.errors.each do |error|
@@ -118,7 +94,6 @@ class ProjectDecorator < Draper::Decorator
     content_tag(:div, nil, id: :progress, class: 'meter-fill', style: "width: #{width}%;")
   end
 
-
   def status_flag
     content_tag(:div, class: [:status_flag]) do
       if source.successful?
@@ -134,6 +109,14 @@ class ProjectDecorator < Draper::Decorator
 
   private
 
+  def get_interval_from_db(column)
+    time_json = source.pluck_from_database(column)
+    {
+      time: time_json.try(:[], 'total'),
+      unit: pluralize_without_number(time_json.try(:[], 'total'), I18n.t("datetime.prompts.#{time_json.try(:[], 'unit')}").downcase)
+    }
+  end
+
   def use_uploaded_image(version)
     source.uploaded_image.send(version).url if source.uploaded_image.present?
   end
@@ -146,19 +129,6 @@ class ProjectDecorator < Draper::Decorator
     end
   rescue
     nil
-  end
-
-  def time_to_go_for(unit)
-    time = 1.send(unit)
-
-    if source.expires_at.to_i >= time.from_now.to_i
-      time = ((source.expires_at - Time.current).abs / time).floor
-      time_and_unit_attributes time, unit
-    end
-  end
-
-  def time_and_unit_attributes(time, unit)
-    { time: time, unit: pluralize_without_number(time, I18n.t("datetime.prompts.#{unit}").downcase) }
   end
 end
 

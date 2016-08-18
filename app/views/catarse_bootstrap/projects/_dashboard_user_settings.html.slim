@@ -1,27 +1,17 @@
-#dashboard-user_settings-tab
+#dashboard-user_settings-tab data-mode="#{@project.mode}"
   - disable_edit = !policy(@project).update_account?
-  - unless disable_edit
-    .u-text-center
-      .w-container
-        .w-row
-          .w-col.w-col-2
-          .w-col.w-col-8
-            .fontweight-semibold.fontsize-large= t('.title')
-            p.fontsize-base= t('.subtitle_html')
-          .w-col.w-col-2.fontcolor-terciary
-
-  = simple_form_for @project, defaults: {input_html: {disabled: disable_edit }, wrapper: :one_col, validation_text: false, label_wrapper_html: { class: 'w-col w-col-5 w-sub-col' } }, html: { id: 'project_account_form', class: 'w-form project-form' } do |f|
+  = simple_form_for @project, defaults: {input_html: {disabled: disable_edit }, wrapper: :one_col, validation_text: false, label_wrapper_html: { class: 'w-col w-col-5 w-sub-col' } }, html: { id: 'project_account_form', class: 'w-form project-form refund_bank_account_form' } do |f|
     = hidden_field_tag :anchor, 'user_settings'
     = f.simple_fields_for :account do |form|
-      .section
+      .w-section.section
         .w-container
-          .w-col.w-col-8.u-marginbottom-30
+          .w-col.w-col-10.w-col-push-1
             = @project.display_errors(:user_settings)
             - if disable_edit
               .card.u-radius.card-message.u-marginbottom-20
                 .fontsize-small
                   = t('.account_edit_disabled_html', link: (link_to 'entrar em contato conosco'," #{CatarseSettings[:zendesk_url]}/account/dropboxes/#{CatarseSettings[:zendesk_dropbox_id]}", class: 'alt-link zendesk_widget' ))
-            .w-form.card.card-terciary
+            .w-form.card.card-terciary.w-row
               #email-form
                 .fontsize-base.fontweight-semibold= t('.title') 
                 .fontsize-small.u-marginbottom-20= t('.user_data_subtitle_html') 
@@ -45,18 +35,19 @@
                     = form.input :state_inscription, as: :string, 
                     input_html: { class: 'positive' }
                 .w-row
-                  .w-col.w-col-6.w-sub-col
-                    = form.input :bank_id, as: :select, collection: Bank.to_collection, class: 'w-select positive', 
-                    input_html: { class: 'positive' }
+                  = render 'shared/bank_select', bform: form, resource: @project
                   .w-col.w-col-6
                     .w-row
                       .w-col.w-col-6.w-col-small-6.w-col-tiny-6.w-sub-col-middle
                         = form.input :agency, as: :string, 
-                        input_html: { class: 'positive' }
+                        input_html: { class: 'positive project_account_attributes_agency' }
                       .w-col.w-col-6.w-col-small-6.w-col-tiny-6.w-sub-col-middle
                         = form.input :agency_digit, as: :string, 
                         input_html: { class: 'positive' }
                 .w-row.u-marginbottom-20
+                  .w-col.w-col-6.w-sub-col
+                    label.field-label.fontweight-semibold = t('activerecord.attributes.bank_account.account_type')
+                    p.fontsize-smaller.u-marginbottom-20 = t('shared.account_type_value')
                   .w-col.w-col-6
                       .w-col.w-col-6.w-col-small-6.w-col-tiny-6.w-sub-col-middle
                         = form.input :account, as: :string, 
@@ -64,10 +55,6 @@
                       .w-col.w-col-6.w-col-small-6.w-col-tiny-6.w-sub-col-middle
                         = form.input :account_digit, as: :string, 
                         input_html: { class: 'positive' }
-                  .w-col.w-col-6
-                    = form.input :account_type, as: :string, class: 'positive',
-                      input_html: { class: 'positive', readonly: true, value: 'Só aceitamos conta corrente' },
-                      include_blank: true
                 .fontsize-base.fontweight-semibold Endereço
                 .divider.u-marginbottom-20
                 .w-row
@@ -101,22 +88,15 @@
                       .w-col.w-col-6.w-col-small-6.w-col-tiny-6
                         = form.input :phone_number, as: :string, 
                         input_html: { class: 'positive' }
-            .w-form.card.card-terciary
-              .divider.u-marginbottom-20
-              
-          .w-col.w-col-4
-            .w-hidden-small.w-hidden-tiny.card.u-radius.u-marginbottom-20 data-ix="new-interaction" 
-              .fontsize-small.fontweight-semibold.u-marginbottom-20 Links úteis
-              ul.w-list-unstyled
-                li.alt-link.fontsize-smaller.u-marginbottom-10
-                  a.alt-link href="http://suporte.catarse.me/hc/pt-br/articles/202457548-O-Catarse-emite-Nota-Fiscal-" target="_blank"  O Catarse emite Nota Fiscal?
-                li.alt-link.fontsize-smaller.u-marginbottom-10
-                  a.alt-link href="http://suporte.catarse.me/hc/pt-br/articles/202037493-Como-ser%C3%A1-feito-o-repasse-do-dinheiro-" target="_blank"  Como será feito o repasse de recursos?
 
-        div
+        .w-section.save-draft-btn-section
           .w-container
             .w-row
-              .w-col.w-col-4
-              .w-col.w-col-4
-                = form.button :submit, t('.submit'),  class:'btn btn-large'
-              .w-col.w-col-4
+              .w-col.w-col-4.w-col-push-4
+                = form.button :submit, t('.submit'),  class:'btn btn-medium'
+        - if current_user.admin && @project.has_account_error?
+          .u-margintop-30
+            .w-container
+              .w-row
+                .w-col.w-col-4.w-col-push-4
+                  = form.button :submit, 'Salvar e remover erro',  class:'btn btn-large', name: 'solve_account_error'

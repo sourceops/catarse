@@ -7,6 +7,10 @@ class UserPolicy < ApplicationPolicy
     done_by_owner_or_admin?
   end
 
+  def redirect_to_user_billing?
+    done_by_owner_or_admin?
+  end
+
   def settings?
     done_by_owner_or_admin?
   end
@@ -31,8 +35,12 @@ class UserPolicy < ApplicationPolicy
     done_by_owner_or_admin?
   end
 
+  def new_password?
+    done_by_owner_or_admin?
+  end
+
   def permitted_attributes
-    u_attrs = [:current_password, :password, :subscribed_to_project_post, bank_account_attributes: [:bank_id, :name, :agency, :account, :owner_name, :owner_document, :account_digit, :agency_digit] ]
+    u_attrs = [:current_password, :password, :subscribed_to_new_followers, :subscribed_to_project_post, :subscribed_to_friends_contributions, bank_account_attributes: [:id, :input_bank_number, :bank_id, :name, :agency, :account, :owner_name, :owner_document, :account_digit, :agency_digit] ]
     u_attrs << { category_follower_ids: [] }
     u_attrs << record.attribute_names.map(&:to_sym)
     u_attrs << { links_attributes: [:id, :_destroy, :link] }

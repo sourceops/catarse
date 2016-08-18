@@ -7,6 +7,15 @@ App.addChild('ReviewForm', _.extend({
     'change #contribution_country_id' : 'onCountryChange',
     'change #contribution_anonymous' : 'toggleAnonymousConfirmation',
     'click #next-step' : 'onNextStepClick',
+    'change input': 'inputChange',
+  },
+  address_br: true,
+
+
+  inputChange: function(event) {
+    if(event.target.id!=='contribution_country_id' && event.target.id!=='contribution_anonymous') {
+      CatarseAnalytics.oneTimeEvent({cat:'contribution_finish',act:this.address_br?'contribution_address_br':'contribution_address_int'});
+    }
   },
 
   onNextStepClick: function(){
@@ -14,7 +23,10 @@ App.addChild('ReviewForm', _.extend({
       this.updateContribution();
       this.$errorMessage.hide();
       this.$('#next-step').hide();
+      this.$('input.error').removeClass('error');
+      this.$('.text-error').hide();
       this.parent.payment.show();
+      CatarseAnalytics.event({cat:'contribution_finish',act:'contribution_next_click'});
     }
     else{
       this.$errorMessage.slideDown('slow');
@@ -23,10 +35,12 @@ App.addChild('ReviewForm', _.extend({
 
   toggleAnonymousConfirmation: function(){
     this.$('#anonymous-confirmation').slideToggle('slow');
+    CatarseAnalytics.event({cat:'contribution_finish',act:'contribution_anonymous_change'});
   },
 
   onCountryChange: function(){
-    if(this.$country.val() == '36'){
+    this.address_br = (this.$country.val() == '36');
+    if(this.address_br){
       this.nationalAddress();
     }
     else{
@@ -43,11 +57,25 @@ App.addChild('ReviewForm', _.extend({
   makeFieldsRequired: function(){
     this.$('[data-required-in-brazil]').prop('required', 'required');
     this.$('[data-required-in-brazil]').parent().removeClass('optional').addClass('required');
+    this.$('[data-required-in-brazil]').each(function() {
+      if($(this).data('old-fixed-mask')) {
+          $(this).data('fixed-mask', $(this).data('fixed-mask'));
+          $(this).removeData('old-fixed-mask');
+          $(this).fixedMask();
+      }
+    });
   },
 
   makeFieldsOptional: function(){
     this.$('[data-required-in-brazil]').prop('required', false);
     this.$('[data-required-in-brazil]').parent().removeClass('required').addClass('optional');
+    this.$('[data-required-in-brazil]').each(function() {
+      if($(this).data('fixed-mask')) {
+          $(this).data('old-fixed-mask', $(this).data('fixed-mask'));
+          $(this).removeData('fixed-mask');
+          $(this).fixedMask('off');
+      }
+    });
   },
 
   nationalAddress: function(){
@@ -66,6 +94,9 @@ App.addChild('ReviewForm', _.extend({
     this.$errorMessage = this.$('#error-message');
     this.setupForm();
     this.onCountryChange();
+
+    this.$('input.required').prop('required', 'required');
+    //CatarseAnalytics.event({cat:'contribution_finish',act:'contribution_started'});
   },
 
   updateContribution: function(){
@@ -91,4 +122,3 @@ App.addChild('ReviewForm', _.extend({
   }
 
 }, Skull.Form));
-

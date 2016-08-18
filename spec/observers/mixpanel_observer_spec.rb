@@ -57,32 +57,34 @@ RSpec.describe MixpanelObserver do
       end
     end
 
-    context "when we create a ProjectBudget" do
-      it "should send tracker a track call with the change" do
-        expect(tracker).to receive(:track).with(project.user.id.to_s, "Project owner engaged with Catarse", project_owner_properties.merge(action: "Updated budget"), project.user.current_sign_in_ip)
-        create(:project_budget, project: project)
-      end
-    end
   end
 
   describe "#after_create" do
     context "when we create a ProjectPost" do
-      before do
-        project_owner_properties[:has_sent_notification] = true
-      end
       it "should send tracker a track call with the change" do
-        expect(tracker).to receive(:track).with(project.user.id.to_s, "Project owner engaged with Catarse", project_owner_properties.merge(action: "Created post"), project.user.current_sign_in_ip)
+        expect(tracker).to receive(:track).with(
+          project.user.id.to_s,
+          "Project owner engaged with Catarse",
+          project_owner_properties.merge({has_created_post: true, action: "Created post"}),
+          project.user.current_sign_in_ip
+        )
         create(:project_post, project: project)
       end
     end
   end
 
   describe "#after_update" do
-    [:video_url, :about_html, :headline, :uploaded_image].each do |attribute|
+    context "when we update a project's uploaded_image" do
+      it "should send tracker a track call with the change" do
+        expect(tracker).to receive(:track).with(project.user.id.to_s, "Project owner engaged with Catarse", project_owner_properties.merge(action: "Updated uploaded_image"), project.user.current_sign_in_ip)
+        project.update_attributes uploaded_image: File.open("#{Rails.root}/spec/fixtures/image.png")
+      end
+    end
+    [:video_url, :about_html, :headline].each do |attribute|
       context "when we update a project's #{attribute}" do
         it "should send tracker a track call with the change" do
           expect(tracker).to receive(:track).with(project.user.id.to_s, "Project owner engaged with Catarse", project_owner_properties.merge(action: "Updated #{attribute}"), project.user.current_sign_in_ip)
-          project.update_attributes attribute => 'http://youtu.be/teste'
+          project.update_attributes attribute => 'https://www.youtube.com/watch?v=t2GsgdXfC5Q'
         end
       end
     end

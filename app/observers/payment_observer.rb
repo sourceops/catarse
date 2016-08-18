@@ -8,9 +8,28 @@ class PaymentObserver < ActiveRecord::Observer
 
   def from_pending_to_paid(payment)
     notify_confirmation(payment)
+    UserBroadcastWorker.perform_async(
+      follow_id: payment.user.id,
+      template_name: 'follow_contributed_project',
+      project_id: payment.project.id) unless payment.anonymous
+  end
+
+  def from_paid_to_chargeback(payment)
+    payment.notify_to_backoffice(:admin_chargeback, {
+      from_email: payment.user.email,
+      from_name: payment.user.display_name
+    })
+  end
+
+  def from_chargeback_to_paid(payment)
+    payment.notify_to_backoffice(:chargeback_reverse, {
+      from_email: payment.user.email,
+      from_name: payment.user.display_name
+    })
   end
 
   def from_pending_refund_to_refunded(payment)
+    return if payment.is_donation?
     payment.contribution.notify_to_contributor((payment.slip_payment? ? :refund_completed_slip : :refund_completed_credit_card))
   end
   alias :from_paid_to_refunded :from_pending_refund_to_refunded
@@ -28,26 +47,24 @@ class PaymentObserver < ActiveRecord::Observer
 
   def from_paid_to_pending_refund(payment)
     if payment.slip_payment?
-      payment.contribution.notify(
-        :contributions_project_unsucessful_slip,
-        payment.user, payment.contribution)
+      payment.contribution.notify_to_contributor(:contributions_project_unsucessful_slip)
     end
   end
 
   def from_paid_to_refused(payment)
     contribution = payment.contribution
-    contribution.notify_to_backoffice(:contribution_canceled_after_confirmed,
-                                      { from_email: contribution.user.email, from_name: contribution.user.name })
-    contribution.notify_to_contributor((payment.slip_payment? ? :contribution_canceled_slip : :contribution_canceled))
+    contribution.notify_to_contributor( :contribution_canceled ) if !payment.slip_payment?
   end
   alias :from_pending_to_refused :from_paid_to_refused
 
   private
   def notify_confirmation(payment)
     contribution = payment.contribution
-    contribution.notify_to_contributor(:confirm_contribution)
+    contribution.notify_to_contributor(:confirm_contribution) unless payment.paid_at.present?
+    project = contribution.project
 
-    if (Time.current > contribution.project.expires_at  + 7.days) && User.where(email: ::CatarseSettings[:email_payments]).present?
+
+    if project.expires_at.present? && (Time.current > project.expires_at  + 7.days) && User.where(email: ::CatarseSettings[:email_payments]).present?
       contribution.notify_to_backoffice(:payment_confirmed_after_project_was_closed)
     end
   end

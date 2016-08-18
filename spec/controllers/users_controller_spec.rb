@@ -177,6 +177,38 @@ RSpec.describe UsersController, type: :controller do
     end
   end
 
+  describe "POST new_password" do
+    context "without password parameter" do
+      before do
+        post :new_password, id: user.id, locale: 'pt'
+      end
+
+      it { expect(response.status).to eq 400 }
+      it { expect(response.content_type).to eq "application/json" }
+      it { expect(JSON.parse(response.body)).to eq JSON.parse('{"errors": ["Missing parameter password"]}') }
+    end
+
+    context "with an invalid password parameter" do
+      before do
+        post :new_password, id: user.id, locale: 'pt', password: '12'
+      end
+
+      it { expect(response.status).to eq 400 }
+      it { expect(response.content_type).to eq "application/json" }
+      it { expect(JSON.parse(response.body)).to eq JSON.parse('{"errors":["Senha A senha que você escolheu é muito curta"]}') }
+    end
+
+    context "with a valid password parameter" do
+      before do
+        post :new_password, id: user.id, locale: 'pt', password: 'newpassword123'
+      end
+
+      it { expect(response.status).to eq 200 }
+      it { expect(response.content_type).to eq "application/json" }
+      it { expect(JSON.parse(response.body)).to eq JSON.parse('{"success": "OK"}') }
+    end
+  end
+
   describe "PUT update" do
     context "with password parameters" do
       let(:current_password){ 'current_password' }
@@ -203,7 +235,8 @@ RSpec.describe UsersController, type: :controller do
       let(:project){ create(:project, state: 'successful') }
       let(:category){ create(:category) }
       before do
-        put :update, id: user.id, locale: 'pt', user: { twitter: 'test', unsubscribes: {project.id.to_s=>"1"}, category_followers_attributes: [{category_id: category.id}]}
+        create(:category_follower, user: user)
+        put :update, id: user.id, locale: 'pt', user: { twitter: 'test', unsubscribes: {project.id.to_s=>"1"}}
       end
       it("should update the user and nested models") do
         user.reload
@@ -212,11 +245,24 @@ RSpec.describe UsersController, type: :controller do
       end
       it{ is_expected.to redirect_to edit_user_path(user) }
     end
+
+    context "removing category followers" do
+      let(:project){ create(:project, state: 'successful') }
+      before do
+        create(:category_follower, user: user)
+        put :update, id: user.id, category_followers_form: true, locale: 'pt', user: { twitter: 'test', unsubscribes: {project.id.to_s=>"1"}, category_followers_attributes: []}
+      end
+      it("should clear category followers") do
+        user.reload
+        expect(user.category_followers.size).to eq(0)
+      end
+      it{ is_expected.to redirect_to edit_user_path(user) }
+    end
   end
 
   describe "GET show" do
     before do
-      get :show, id: user.id, locale: 'pt'
+      get :show, id: user.id, locale: 'pt', ref: 'test'
     end
 
     context "when user is no longer active" do
@@ -227,6 +273,10 @@ RSpec.describe UsersController, type: :controller do
     context "when user is active" do
       it{ is_expected.to be_successful }
       it{ expect(assigns(:fb_admins)).to include(user.facebook_id.to_i) }
+    end
+
+    it "should set referral session" do
+      expect(cookies[:referral_link]).to eq 'test'
     end
   end
 end

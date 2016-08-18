@@ -52,11 +52,12 @@ RSpec.describe ContributionDetailDecorator do
         subject { detail.decorate.display_date(field)}
         before do
           attributes = {}
-          attributes[field] = Time.now
+          attributes[field] = Time.current
           payment.update_attributes attributes
         end
 
-        it{ is_expected.to eq(I18n.l(payment.send(field).to_date)) }
+        #use the same hardcoded timezone as the db
+        it{ is_expected.to eq(I18n.l(payment.send(field).in_time_zone('Brasilia').to_date)) }
       end
     end
   end
@@ -79,7 +80,7 @@ RSpec.describe ContributionDetailDecorator do
 
     context "when payment is paid" do
       before do
-        payment.update_attributes paid_at: Time.now
+        payment.update_attributes paid_at: Time.current
       end
       it{ is_expected.to eq I18n.t("payment.state.#{payment.state}", date: detail.decorate.display_date(:paid_at)) }
     end

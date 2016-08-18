@@ -14,13 +14,20 @@ class ProjectPolicy < ApplicationPolicy
     done_by_owner_or_admin?
   end
 
+  def push_to_online?
+    done_by_owner_or_admin?
+  end
+
   def update?
     create?
   end
 
+  def push_to_flex?
+    is_admin?
+  end
+
   def update_account?
-    record.account.invalid? || 
-      ['online', 'waiting_funds', 'successful', 'failed'].exclude?(record.state) || is_admin?
+    record.account.new_record? || !record.published? || is_admin?
   end
 
   def send_to_analysis?
@@ -28,12 +35,18 @@ class ProjectPolicy < ApplicationPolicy
   end
 
   def publish?
-    create? && record.approved?
+    done_by_owner_or_admin?
+  end
+
+  def validate_publish?
+    done_by_owner_or_admin?
   end
 
   def permitted_attributes
-    if user.present? && (user.admin? || (record.draft? || record.rejected? || record.in_analysis?))
+    if user.present? && (user.admin? || (record.draft? || record.rejected? || record.in_analysis? || record.approved?))
       p_attr = record.attribute_names.map(&:to_sym)
+      p_attr << :all_tags
+      p_attr << :all_public_tags
       p_attr << user_attributes
       p_attr << budget_attributes
       p_attr << posts_attributes
@@ -41,9 +54,22 @@ class ProjectPolicy < ApplicationPolicy
       p_attr << account_attributes
 
       p_attr.flatten
+
+      # TODO: This code is to prevent not allowed
+      # fields without admin for legacy dashboard
+      unless user.admin?
+        not_allowed = [
+          :audited_user_name, :audited_user_cpf, :audited_user_phone_number,
+          :state, :origin_id, :service_fee, :total_installments,
+          :recommended, :created_at, :updated_at, :expires_at, :all_tags
+        ]
+        p_attr.delete_if { |key| not_allowed.include?(key) }
+      end
+
+      p_attr
     else
-      [:about_html, :video_url, :uploaded_image, :headline, :budget,
-                 user_attributes, posts_attributes, budget_attributes, reward_attributes, account_attributes]
+      [:about_html,:online_days, :video_url, :uploaded_image, :headline, :budget, :city_id, :city,
+                 user_attributes, posts_attributes, budget_attributes, reward_attributes]
     end
   end
 
@@ -72,7 +98,7 @@ class ProjectPolicy < ApplicationPolicy
 
   def account_attributes
     if done_by_owner_or_admin?
-      { account_attributes: ProjectAccount.attribute_names.map(&:to_sym) }
+      { account_attributes: ProjectAccount.attribute_names.map(&:to_sym) << :input_bank_number }
     end
   end
 

@@ -1,7 +1,6 @@
 # coding: utf-8
 class ApplicationController < ActionController::Base
   include Concerns::ExceptionHandler
-  include Concerns::MenuHandler
   include Concerns::SocialHelpersHandler
   include Concerns::AnalyticsHelpersHandler
   include Pundit
@@ -11,26 +10,31 @@ class ApplicationController < ActionController::Base
     include NewRelic::Agent::Instrumentation::Rails3::ActionController
   end
 
+  acts_as_token_authentication_handler_for User, fallback: :none
   layout 'catarse_bootstrap'
   protect_from_forgery
 
   before_filter :configure_permitted_parameters, if: :devise_controller?
 
-  helper_method :referral_link, :render_projects, :should_show_beta_banner?,
+  helper_method :referral, :render_projects,
     :render_feeds, :can_display_pending_refund_alert?
 
   before_filter :set_locale
 
-  before_action :referral_it!
-
   before_action :force_www
 
-  def referral_link
-    session[:referral_link]
+  def referral
+    {
+      ref: cookies[:referral_link],
+      domain: cookies[:origin_referral]
+    }
   end
 
   def can_display_pending_refund_alert?
-    @can_display_alert ||= (current_user && current_user.pending_refund_payments.present? && controller_name.to_sym != :bank_accounts)
+    @can_display_alert ||= current_user && current_user.pending_refund_payments.present? &&
+                            controller_name.to_sym != :bank_accounts &&
+                            controller_name.to_sym != :donations &&
+                            action_name.to_sym != :no_account_refund
   end
 
   def render_projects collection, ref, locals = {}
@@ -41,16 +45,54 @@ class ApplicationController < ActionController::Base
     render_to_string partial: 'users/feeds/feed', collection: collection, locals: locals
   end
 
-  def should_show_beta_banner?
-    current_user.nil? || current_user.projects.empty?
-  end
-
-  def should_show_beta_banner?
-    current_user.nil? || current_user.projects.empty?
-  end
-
   def referral_it!
-    session[:referral_link] ||= params[:ref] if params[:ref].present?
+    if request.env["HTTP_REFERER"] =~ /catarse\.me/
+      # For local referrers we only want to store the first ref parameter
+      cookies[:referral_link] ||= build_cookie_structure(params[:ref])
+      cookies[:origin_referral] ||= build_cookie_structure(request.env["HTTP_REFERER"])
+    else
+      # For external referrers should always overwrite referral_link
+      cookies[:referral_link] = build_cookie_structure((params[:ref] || cookies[:referral_link]))
+      cookies[:origin_referral] = build_cookie_structure((request.env["HTTP_REFERER"] || cookies[:origin_referral]))
+    end
+  end
+
+  def build_cookie_structure(value)
+    if value.present?
+      {
+        value: value,
+        expires: 1.week.from_now
+      }
+    end
+  end
+
+  # Used on external services and generic email
+  # templates, just need to redirect to last
+  # updated or created project dashboard
+  def redirect_to_last_edit
+    authorize Project.new(user_id: current_user.try(:id)), :create?
+    lp = current_user.projects.update_ordered.first
+    redirect_to edit_project_path lp
+  end
+
+  def redirect_to_user_billing
+    authorize current_user || User.new(), :edit?
+    redirect_to edit_user_path(current_user, anchor: 'billing')
+  end
+
+  def redirect_to_user_contributions
+    authorize current_user || User.new(), :edit?
+    redirect_to edit_user_path(current_user, anchor: 'contributions')
+  end
+
+  def connect_facebook
+    if user_signed_in? && current_user.has_fb_auth?
+      FbFriendCollectorWorker.perform_async(current_user.fb_auth.id)
+      redirect_to follow_fb_friends_path
+    else
+      session[:return_to] = follow_fb_friends_path
+      redirect_to('/auth/facebook')
+    end
   end
 
   private

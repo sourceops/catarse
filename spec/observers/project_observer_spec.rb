@@ -35,53 +35,55 @@ RSpec.describe ProjectObserver do
   end
 
   describe "#before_save" do
+    context "when video_url changed" do
+      let(:project) { create(:project, video_url: 'https://www.youtube.com/watch?v=9QveBbn7t_c', video_embed_url: 'embed_url') }
 
-    context "when change the online_date" do
-      let(:project) { build(:project, state: 'approved', online_days: 10) }
-      before do
-        project.update_attribute :online_date, Time.current
-        expect(project.expires_at).to eq ( Time.current + 10.days ).end_of_day
+      it "should clean embed_url when video_is null" do
+        expect(project.video_embed_url.present?).to eq(true)
+        project.video_url = nil
+        project.save
+        expect(project.video_embed_url.present?).to eq(false)
       end
-      it "should update expires_at" do
+    end
+    context "when project is new" do
+      before do
+        expect(project).to receive(:update_expires_at)
+      end
+
+      let(:project) { build(:project, state: 'approved') }
+
+      it "should call update_expires_at" do
         project.save(validate: false)
       end
     end
 
-    context "when change the online_days" do
-      let(:project) { build(:project, state: 'approved', online_date: Time.current) }
+    context "when project is being updated and online_days does not change" do
       before do
-        project.update_attribute :online_days, 20
-        expect(project.expires_at).to eq ( Time.current + 20.days ).end_of_day
+        expect(project).to_not receive(:update_expires_at)
       end
-      it "should update expires_at" do
+
+      let!(:project) { create(:project, state: 'approved', expires_at: Date.tomorrow) }
+
+      it "should not call update_expires_at" do
         project.save(validate: false)
       end
     end
 
-    context "when project is not online" do
-      let(:project) { build(:project, state: 'approved', online_date: nil) }
+    context "when expires_at is nil and we have both online_at and online_days" do
       before do
-        expect(project.expires_at).to eq nil
+        expect(project).to receive(:update_expires_at)
       end
-      it "should update expires_at" do
+
+      let!(:project) { create(:project, state: 'approved', online_days: 60) }
+
+      it "should not call update_expires_at" do
         project.save(validate: false)
       end
     end
   end
 
   describe "#after_save" do
-    let(:project) { build(:project, state: 'approved', online_date: 10.days.from_now) }
-
-    context "when change the online_date" do
-      before do
-        expect(project).to receive(:remove_scheduled_job).with('ProjectSchedulerWorker')
-        expect(ProjectSchedulerWorker).to receive(:perform_at)
-      end
-      it "should call project scheduler" do
-        project.save(validate: false)
-      end
-    end
-
+    let(:project) { build(:project, state: 'approved') }
     context "when we change the video_url" do
       let(:project){ create(:project, video_url: 'http://vimeo.com/11198435', state: 'draft')}
       before do
@@ -90,17 +92,6 @@ RSpec.describe ProjectObserver do
       it "should call project downloader" do
         project.save(validate: false)
       end
-    end
-  end
-
-  describe "#after_create" do
-    before do
-      expect_any_instance_of(ProjectObserver).to receive(:after_create).and_call_original
-      project
-    end
-
-    it "should create notification for project owner" do
-      expect(ProjectNotification.where(user_id: project.user.id, template_name: 'project_received', project_id: project.id).count).to eq 1
     end
   end
 
@@ -114,26 +105,6 @@ RSpec.describe ProjectObserver do
 
     it "should create notification for catarse admin" do
       expect(ProjectNotification.where(user_id: @user.id, template_name: :new_draft_project, project_id: @project.id).count).to eq 1
-    end
-  end
-
-  describe "#from_approved_to_online" do
-    before do
-      project.notify_observers(:from_approved_to_online)
-    end
-
-    it "should send project_visible notification" do
-      expect(ProjectNotification.where(template_name: 'project_visible', user: project.user, project: project).count).to eq 1
-    end
-  end
-
-  describe "#from_in_analysis_to_approved" do
-    before do
-      project.notify_observers(:from_in_analysis_to_approved)
-    end
-
-    it "should send project_visible notification" do
-      expect(ProjectNotification.where(template_name: 'project_approved', user: project.user, project: project).count).to eq 1
     end
   end
 
@@ -171,18 +142,17 @@ RSpec.describe ProjectObserver do
       end
     end
 
-    it "should send project_visible notification" do
-      expect(ProjectNotification.where(template_name: 'project_in_waiting_funds', user: project.user, project: project).count).to eq 1
-    end
   end
 
   describe "#from_online_to_failed" do
     let(:project) do
-      create(:project, {
+      create_project({
         goal: 100,
-        online_date: 3.days.ago,
-        online_days: 2,
+        online_days: 30,
         state: 'online'
+      }, {
+        to_state: 'online',
+        created_at: 3.days.ago,
       })
     end
 
@@ -210,6 +180,7 @@ RSpec.describe ProjectObserver do
         payment_valid
         payment_invalid
         contribution_invalid.user.bank_account.destroy
+        project.update_attribute :online_days, 2
         expect(DirectRefundWorker).to receive(:perform_async).with(payment_valid.id)
         expect(DirectRefundWorker).to_not receive(:perform_async).with(payment_invalid.id)
       end
@@ -225,12 +196,12 @@ RSpec.describe ProjectObserver do
       project.notify_observers(:from_waiting_funds_to_successful)
     end
 
-    it "should send project_visible notification" do
-      expect(ProjectNotification.where(template_name: 'project_success', user: project.user, project: project).count).to eq 1
+    it "should create notification for admin" do
+      expect(ProjectNotification.where(template_name: 'redbooth_task', user: redbooth_user, project_id: project.id).count).to eq(1)
     end
 
-    it "should create notification for admin" do
-      expect(ProjectNotification.where(template_name: 'redbooth_task', user: redbooth_user, project_id: project.id).count).not_to be_nil
+    it "should create notification for project owner" do
+      expect(ProjectNotification.where(template_name: 'project_success', user: project.user, project_id: project.id).count).to eq(1)
     end
   end
 end

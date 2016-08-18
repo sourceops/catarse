@@ -18,5 +18,11 @@ UserNotifier.configure do |config|
   # This is the default name used in from and reply_to 
   # in case the notification does not have a variable from_name
   config.from_name        = CatarseSettings.get_without_cache(:company_name)
+
+  #Use sendgrid xsmptp API
+  config.use_xsmtp_api = true
+
+  #Don't deliver automatic notifications
+  config.auto_deliver = false
 end
 

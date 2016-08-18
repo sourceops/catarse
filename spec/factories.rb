@@ -15,8 +15,16 @@ FactoryGirl.define do
     "#{n}"
   end
 
+  sequence :serial do |n|
+    n
+  end
+
   sequence :permalink do |n|
     "foo_page_#{n}"
+  end
+
+  sequence :domain do |n| 
+    "foo#{n}lorem.com"
   end
 
   factory :category_follower do |f|
@@ -26,6 +34,23 @@ FactoryGirl.define do
 
   factory :country do |f|
     f.name "Brasil"
+  end
+
+  factory :origin do |f|
+    f.referral { generate(:permalink) }
+    f.domain { generate(:domain) }
+  end
+
+  factory :project_reminder do |f|
+    f.association :user
+    f.association :project
+  end
+
+  factory :balance_transaction do |f| 
+    f.association :user
+    f.association :project
+    f.amount 100
+    f.event_name 'foo'
   end
 
   factory :user do |f|
@@ -66,21 +91,79 @@ FactoryGirl.define do
     f.permalink { generate(:permalink) }
     f.association :user
     f.association :category
+    f.association :city
     f.about_html "Foo bar"
     f.headline "Foo bar"
+    f.mode 'aon'
     f.goal 10000
-    f.online_date Time.now
     f.online_days 5
     f.more_links 'Ipsum dolor'
-    f.first_contributions 'Foo bar'
     f.video_url 'http://vimeo.com/17298435'
     f.state 'online'
     f.budget '1000'
     f.uploaded_image File.open("#{Rails.root}/spec/support/testimg.png")
+    after :create do |project| 
+      unless project.project_transitions.where(to_state: project.state).present?
+        FactoryGirl.create(:project_transition, to_state: project.state, project: project)
+      end
+
+      # should set expires_at when create a project in these states
+      if %w(online waiting_funds failed successful).include?(project.state) && project.online_days.present? && project.online_at.present?
+        project.expires_at = (project.online_at + project.online_days.days).end_of_day
+        project.save
+      end
+    end
     after :build do |project|
       project.account = build(:project_account, project: nil)
-      project.rewards.build(deliver_at: Time.now, minimum_value: 10, description: 'test')
+      project.rewards.build(deliver_at: 1.year.from_now, minimum_value: 10, description: 'test')
     end
+  end
+
+  factory :balance_transfer do |f|
+    f.amount 50
+    f.association :project
+    f.association :user
+  end
+
+  factory :flexible_project do |f|
+    f.state 'draft'
+    f.mode 'flex'
+    f.name "Foo bar"
+    f.permalink { generate(:permalink) }
+    f.association :user
+    f.association :category
+    f.association :city
+    f.about_html "Foo bar"
+    f.headline "Foo bar"
+    f.goal 10000
+    f.online_days 5
+    f.more_links 'Ipsum dolor'
+    f.video_url 'http://vimeo.com/17298435'
+    f.budget '1000'
+    f.uploaded_image File.open("#{Rails.root}/spec/support/testimg.png")
+
+    after :create do |flex_project| 
+      FactoryGirl.create(:project_transition, {
+        to_state: flex_project.state,
+        project: flex_project
+      })
+    end
+    after :build do |project|
+      project.account = build(:project_account, project: nil)
+    end
+  end
+
+  factory :project_transition do |f|
+    f.association :project
+    f.most_recent true
+    f.to_state 'online'
+    f.sort_key { generate(:serial) }
+  end
+
+  factory :project_account_error do |f|
+    f.association :project_account
+    f.solved false
+    f.reason 'foo bar reason'
   end
 
   factory :project_account do |f|
@@ -94,7 +177,7 @@ FactoryGirl.define do
     f.address_number "foo"
     f.address_street "foo"
     f.phone_number "1234"
-    f.agency "foo"
+    f.agency "fooo"
     f.agency_digit "foo"
     f.owner_document "foo"
     f.owner_name "foo"
@@ -129,17 +212,32 @@ FactoryGirl.define do
     f.locale 'pt'
   end
 
+  factory :project_notification do |f|
+    f.association :user, factory: :user
+    f.association :project, factory: :project
+    f.template_name 'project_success'
+    f.from_email 'from@email.com'
+    f.from_name 'from_name'
+    f.locale 'pt'
+  end
+
+
   factory :reward do |f|
     f.association :project, factory: :project
     f.minimum_value 10.00
     f.description "Foo bar"
-    f.deliver_at 10.days.from_now
+    f.deliver_at 1.year.from_now
   end
 
   factory :rewards, class: Reward do |f|
     f.minimum_value 10.00
     f.description "Foo bar"
-    f.deliver_at 10.days.from_now
+    f.deliver_at 1.year.from_now
+  end
+
+  factory :donation do |f|
+    f.amount 10
+    f.association :user
   end
 
 
@@ -150,24 +248,34 @@ FactoryGirl.define do
     f.payer_name 'Foo Bar'
     f.payer_email 'foo@bar.com'
     f.anonymous false
+    factory :deleted_contribution do
+      after :create do |contribution|
+        create(:payment, state: 'deleted', value: contribution.value, contribution: contribution, created_at: contribution.created_at)
+      end
+    end
+    factory :refused_contribution do
+      after :create do |contribution|
+        create(:payment, state: 'refused', value: contribution.value, contribution: contribution, created_at: contribution.created_at)
+      end
+    end
     factory :confirmed_contribution do
       after :create do |contribution|
-        create(:payment, state: 'paid', value: contribution.value, contribution: contribution)
+        create(:payment, state: 'paid', gateway: 'Pagarme', value: contribution.value, contribution: contribution, created_at: contribution.created_at, payment_method: 'BoletoBancario')
       end
     end
     factory :pending_contribution do
       after :create do |contribution|
-        create(:payment, state: 'pending', value: contribution.value, contribution: contribution)
+        create(:payment, state: 'pending', value: contribution.value, contribution: contribution, created_at: contribution.created_at)
       end
     end
     factory :pending_refund_contribution do
       after :create do |contribution|
-        create(:payment, state: 'pending_refund', value: contribution.value, contribution: contribution)
+        create(:payment, state: 'pending_refund', value: contribution.value, contribution: contribution, created_at: contribution.created_at)
       end
     end
     factory :refunded_contribution do
       after :create do |contribution|
-        create(:payment, state: 'refunded', value: contribution.value, contribution: contribution)
+        create(:payment, state: 'refunded', value: contribution.value, contribution: contribution, created_at: contribution.created_at)
       end
     end
     factory :contribution_with_credits do
@@ -183,6 +291,11 @@ FactoryGirl.define do
     f.value 10.00
     f.installment_value 10.00
     f.payment_method "CartaoDeCredito"
+  end
+
+  factory :user_follow do |f|
+    f.association :user
+    f.association :follow, factory: :user
   end
 
   factory :payment_notification do |f|
@@ -230,8 +343,13 @@ FactoryGirl.define do
   end
 
   factory :state do
-    name "RJ"
-    acronym "RJ"
+    name { generate(:name) }
+    acronym { generate(:name) }
+  end
+
+  factory :city do |f|
+    f.association :state
+    f.name "foo"
   end
 
   factory :bank do
@@ -246,7 +364,7 @@ FactoryGirl.define do
     owner_name "Foo Bar"
     owner_document "97666238991"
     account_digit "1"
-    agency "1"
+    agency "1234"
     agency_digit "1"
     account "1"
   end
@@ -256,7 +374,7 @@ FactoryGirl.define do
     owner_name "Foo"
     owner_document "000"
     account_digit "1"
-    agency "1"
+    agency "1234"
     account '1'
   end
 

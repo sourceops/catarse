@@ -2,9 +2,13 @@
 require 'rails_helper'
 
 RSpec.describe ProjectsController, type: :controller do
-  before{ allow(controller).to receive(:current_user).and_return(current_user) }
-  before{ CatarseSettings[:base_url] = 'http://catarse.me' }
-  before{ CatarseSettings[:email_projects] = 'foo@bar.com' }
+  before do
+    allow(controller).to receive(:current_user).and_return(current_user)
+    request.env['HTTP_REFERER'] = 'https://catarse.me'
+    CatarseSettings[:base_url] = 'http://catarse.me' 
+    CatarseSettings[:email_projects] = 'foo@bar.com'
+  end
+  
   render_views
   subject{ response }
   let(:project){ create(:project, state: 'draft') }
@@ -22,11 +26,11 @@ RSpec.describe ProjectsController, type: :controller do
 
     context "when user is logged in" do
       let(:current_user){ create(:user) }
-      it{ is_expected.to redirect_to edit_project_path(Project.last, anchor: 'home') }
+      it{ is_expected.to redirect_to insights_project_path(Project.last) }
     end
   end
 
-  describe "GET publish" do
+  describe "GET push_to_online" do
     let(:project){ create(:project, state: 'approved') }
     let(:current_user) { project.user }
 
@@ -42,7 +46,7 @@ RSpec.describe ProjectsController, type: :controller do
       })
       create(:reward, project: project)
       create(:bank_account, user: current_user)
-      get :publish, id: project.id, locale: :pt
+      get :push_to_online, id: project.id, locale: :pt
       project.reload
     end
 
@@ -63,14 +67,14 @@ RSpec.describe ProjectsController, type: :controller do
     end
 
     context "with referral link" do
-      subject { project.referral_link }
+      subject { project.origin }
       before do
         create(:reward, project: project)
         get :send_to_analysis, id: project.id, locale: :pt, ref: 'referral'
         project.reload
       end
 
-      it { is_expected.to eq('referral') }
+      it { expect(subject.referral).to eq('referral') }
     end
   end
 
@@ -81,7 +85,7 @@ RSpec.describe ProjectsController, type: :controller do
     it { is_expected.to be_success }
 
     context "with referral link" do
-      subject { controller.session[:referral_link] }
+      subject { cookies[:referral_link] }
 
       before do
         get :index, locale: :pt, ref: 'referral'

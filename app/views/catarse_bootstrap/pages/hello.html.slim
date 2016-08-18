@@ -23,7 +23,7 @@
         .hello-stats= number_with_delimiter(statistics.total_projects_success)
         .fontsize-small = t('.hero.projects_html')
       .w-col.w-col-4.u-marginbottom-20
-        .hello-stats= number_to_human(statistics.total_contributed)
+        .hello-stats= "#{(statistics.total_contributed/1_000_000).to_i} #{number_to_human(statistics.total_contributed, format: '%u')}"
         .fontsize-small = t('.hero.money_html')
     .w-hidden-main.w-hidden-medium.u-marginbottom-40
 .section-large.hello-idea
@@ -67,10 +67,10 @@
     .w-row
       .w-col.w-col-6.right-divider
         .fontsize-large.lineheight-tight.u-marginbottom-30 = t('.cta.backer-cta') 
-        a.btn.btn-large.btn-inline href="#{explore_path(ref: 'hello', anchor: 'recommended')}" = t('.cta.backer-link') 
+        a.btn.btn-large.btn-inline href="#{explore_path(ref: 'ctrse_hello', anchor: 'recommended')}" = t('.cta.backer-link') 
       .w-col.w-col-6.u-marginbottom-30
         .fontsize-large.lineheight-tight.u-marginbottom-30 = t('.cta.maker-cta')
-        a.btn.btn-large.btn-inline href="#{start_path(ref: 'hello')}" = t('.cta.maker-link')
+        a.btn.btn-large.btn-inline href="#{start_path(ref: 'ctrse_hello')}" = t('.cta.maker-link')
 .section-large.bg-humberto
   .w-container
     .w-row.u-marginbottom-20
@@ -80,24 +80,24 @@
       = image_tag "humberto-avatar.JPG", class: "thumb u-round u-marginbottom-10 big"        
       .fontweight-semibold.fontsize-large.fontcolor-negative = t('.testimonial.humberto.name') 
       .fontsize-base.fontcolor-negative = t('.testimonial.humberto.credentials')
-.section-one-column.bg-gray
-  .w-container.card-big.u-margintop-30.u-marginbottom-40
+.section.section-one-column.bg-gray
+  .w-container.card.card-big.u-margintop-30.u-marginbottom-40
     = image_tag "icon-hello-1.png", width: "47", class: "u-marginbottom-20"
     .fontsize-larger.u-marginbottom-40.lineheight-tighter = t('.details.fund.title')
     .fontsize-large = t('.details.fund.text')
-  .w-container.card-big.u-marginbottom-40
+  .w-container.card.card-big.u-marginbottom-40
     = image_tag "icon-hello-2.png", width: "47", class: "u-marginbottom-20"
     .fontsize-larger.u-marginbottom-40.lineheight-tighter = t('.details.allornothing.title')
     .fontsize-large = t('.details.allornothing.text_html')
-  .w-container.card-big.u-marginbottom-40
+  .w-container.card.card-big.u-marginbottom-40
     = image_tag "icon-hello-3.png", width: "47", class: "u-marginbottom-20"
     .fontsize-larger.u-marginbottom-40.lineheight-tighter = t('.details.services.title')
     .fontsize-large = t('.details.services.text')
-  .w-container.card-big.u-marginbottom-40
+  .w-container.card.card-big.u-marginbottom-40
     = image_tag "icon-hello-4.png", width: "47", class: "u-marginbottom-20"
     .fontsize-larger.u-marginbottom-40.lineheight-tighter = t('.details.fees.title')
     .fontsize-large = t('.details.fees.text')
-  .w-container.card-big
+  .w-container.card.card-big
     = image_tag "icon-hello-5.png", width: "47", class: "u-marginbottom-20"
     .fontsize-larger.u-marginbottom-40.lineheight-tighter = t('.details.work.title')
     .fontsize-large = t('.details.work.text')
@@ -106,10 +106,10 @@
     .w-row.u-marginbottom-80.u-text-center.u-margintop-30
       .w-col.w-col-6.right-divider
         .fontsize-large.lineheight-tight.u-marginbottom-30 = t('.cta.backer-cta')
-        a.btn.btn-large.btn-inline href="#{explore_path(ref: 'hello', anchor: 'recommended')}" = t('.cta.backer-link')
+        a.btn.btn-large.btn-inline href="#{explore_path(ref: 'ctrse_hello', anchor: 'recommended')}" = t('.cta.backer-link')
       .w-col.w-col-6
         .fontsize-large.lineheight-tight.u-marginbottom-30 = t('.cta.maker-cta')
-        a.btn.btn-large.btn-inline href="#{start_path(ref: 'hello')}" = t('.cta.maker-link')
+        a.btn.btn-large.btn-inline href="#{start_path(ref: 'ctrse_hello')}" = t('.cta.maker-link')
 .bg-people.before-footer
   .w-container
     .fontsize-large.u-text-center = t('.staff')

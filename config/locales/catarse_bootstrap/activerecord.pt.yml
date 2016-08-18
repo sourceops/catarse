@@ -3,6 +3,7 @@ pt:
     models:
       channel: Canal
       project: Projeto
+      flexible_project: Projeto
       reward: Recompensa
       contribution: Apoiador
       category: Categoria
@@ -31,6 +32,7 @@ pt:
         account_digit: 'Dígito conta'
         account_type: 'Tipo de conta'
       bank_account:
+        account_type: 'Tipo de conta'
         input_bank_number: "Número do banco"
         bank: 'Banco'
         bank_id: 'Banco'
@@ -71,7 +73,8 @@ pt:
         project: projeto
       reward:
         deliver_at: Previsão de entrega
-      project:
+      flexible_project:
+        name: 'Nome do projeto'
         channels: Canais
         category: Categoria
         expires_at: Prazo
@@ -82,8 +85,35 @@ pt:
         goal: "Valor a ser arrecadado"
         about_html: "Descrição do projeto"
         user_id: "Id do usuário"
+        service_fee: 'Taxa do Catarse'
+        video_url: "URL do vídeo"
+        permalink: 'Link para o seu projeto no Catarse'
+        all_tags: 'Admin Tags'
+        all_public_tags: 'Tags'
+        city: 'Local do projeto'
+        more_links: 'Indique links para as pessoas conhecerem mais sobre o seu projeto e sua trajetória.'
+        traffic_sources: 'Como você conheceu o Catarse?'
+        first_contributions: "Quem são as primeiras pessoas que você vai pedir para apoiar o seu projeto?"
+        budget: 'Orçamento do projeto'
+        uploaded_image: 'Imagem do projeto'
+      project:
+        name: 'Nome do projeto'
+        channels: Canais
+        category: Categoria
+        expires_at: Prazo
+        online_days: "Prazo para arrecadação"
+        headline: "Frase de efeito"
+        image_url: "URL da imagem"
+        name: "Nome do projeto"
+        service_fee: 'Taxa do Catarse'
+        goal: "Valor a ser arrecadado"
+        about_html: "Descrição do projeto"
+        user_id: "Id do usuário"
         video_url: "URL do vídeo"
         permalink: 'Link do seu projeto'
+        all_tags: 'Admin Tags'
+        all_public_tags: 'Tags'
+        city: 'Local do projeto'
         more_links: 'Indique links para as pessoas conhecerem mais sobre o seu projeto e sua trajetória.'
         traffic_sources: 'Como você conheceu o Catarse?'
         first_contributions: "Quem são as primeiras pessoas que você vai pedir para apoiar o seu projeto?"
@@ -138,6 +168,7 @@ pt:
           duplicate: "O seu pagamento já está sendo processado"
         contribution: "Erro ao salvar apoio"
         bank_account:
+          invalid: "Conta inválida"
           attributes:
             bank:
               blank: 'Banco não pode ficar em branco'
@@ -159,13 +190,16 @@ pt:
               blank: 'Dígito da agência não pode ficar em branco'
               invalid: 'Digito da agência inválido'
         project_account:
+          invalid: 'Conta não é válida'
           attributes:
             full_name:
               blank: "Razão social do usuário não pode ficar em branco"
             email:
               blank: "Email do usuário não pode ficar em branco"
+              invalid: "Email do usuário inválido"
             cpf:
               blank: "CPF do usuário não pode ficar em branco"
+              invalid: "CPF inválido"
             address_street:
               blank: "Endereço do usuário não pode ficar em branco"
             address_number:
@@ -182,10 +216,12 @@ pt:
               blank: "Banco do usuário não pode ficar em branco"
             agency:
               blank: "Agência do usuário não pode ficar em branco"
+              invalid: "Agência inválida"
             agency_digit:
               blank: "Dígito agência do usuário não pode ficar em branco"
             account:
               blank: "No. da conta do usuário não pode ficar em branco"
+              format: "No. da conta do usuário invalido"
             account_digit:
               blank: "Dígito conta do usuário não pode ficar em branco"
             owner_name:
@@ -195,8 +231,12 @@ pt:
               not_same: "CPF/CNPJ dos dados cadastrais e bancários preenchidos não estão iguais."
             account_type:
               blank: "Tipo de conta não pode ficar em branco"
-        project:
+        flexible_project:
           attributes:
+            rewards:
+              at_least_one: 'Deve haver pelo menos uma recompensa'
+            city:
+              blank: Local do projeto não pode ficar em branco
             video_url:
               blank: 'O vídeo do projeto não pode ficar em branco'
             budget:
@@ -204,6 +244,7 @@ pt:
             uploaded_image:
               blank: 'A imagem do projeto não pode ficar em branco'
             name:
+              too_long: "Nome do projeto é muito longo (máximo: 50 caracteres)"
               blank: "O nome do projeto não pode ficar em branco"
             permalink:
               blank: "A URL do projeto não pode ficar em branco"
@@ -217,7 +258,45 @@ pt:
               not_a_number: "Meta de arrecadação aceita somente números"
             online_days:
               blank: "O prazo de arrecadação não pode ficar em branco"
-              greater_than: "O prazo para arrecadação deve ser maior que 0 dias"
+              greater_than: "O prazo para arrecadação deve ser maior que 2 dias"
+              less_than_or_equal_to: "O prazo para arrecadação deve ser menor ou igual a 365 dias"
+              not_a_number: "O prazo para arrecadação deve ser um número de dias"
+            about_html:
+              blank: "A descrição do projeto não pode ficar em branco"
+            headline:
+              blank: "A frase de efeito do projeto não pode ficar em branco"
+              too_long: "A frase de efeito é muito longa. Você pode usar um máximo de 140 caracteres."
+        project:
+          attributes:
+            rewards:
+              at_least_one: 'Deve haver pelo menos uma recompensa'
+            city:
+              blank: Local do projeto não pode ficar em branco
+            video_url:
+              blank: 'O vídeo do projeto não pode ficar em branco'
+            budget:
+              blank: 'O orçamento do projeto não pode ficar em branco'
+            uploaded_image:
+              blank: 'A imagem do projeto não pode ficar em branco'
+            name:
+              too_long: "Nome do projeto é muito longo (máximo: 50 caracteres)"
+              blank: "O nome do projeto não pode ficar em branco"
+            permalink:
+              blank: "A URL do projeto não pode ficar em branco"
+              invalid: "A URL do projeto é inválida"
+              taken: "Essa URL de projeto já existe"
+            category:
+              blank: "Você deve escolher uma categoria para seu projeto"
+            public_tags:
+              less_than_or_equal_to: 'O total de tags deve ser menor ou igual a 5'
+            goal:
+              blank: "O valor da meta não pode ficar em branco"
+              greater_than: "A meta deve ser maior que 9"
+              not_a_number: "Meta de arrecadação aceita somente números"
+            online_days:
+              blank: "O prazo de arrecadação não pode ficar em branco"
+              greater_than: "O prazo para arrecadação deve ser maior que 2 dias"
+              less_than_or_equal_to: "O prazo para arrecadação deve ser menor ou igual a 60 dias"
               not_a_number: "O prazo para arrecadação deve ser um número de dias"
             about_html:
               blank: "A descrição do projeto não pode ficar em branco"
@@ -259,6 +338,7 @@ pt:
       refunded: "Reembolsado em %{date}"
       pending_refund: "Reembolso solicitado em %{date}"
       refused: "Pagamento recusado em %{date}"
+      chargeback: "Contestado"
   contribution:
     payment_details:
       desconhecido: ""

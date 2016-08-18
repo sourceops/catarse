@@ -1,31 +1,19 @@
 # coding: utf-8
 class ApiTokensController < ApplicationController
+  TOKEN_TTL = 1.hour
+
   def show
-    unless CatarseSettings[:api_host].present?
-      return render json: {error: "you need to have CatarseSettings[:api_host] configured to get an API token"}, status: 500
+    unless CatarseSettings[:api_host].present? && CatarseSettings[:jwt_secret].present?
+      return render json: {error: "you need to have api_host and jwt_secret configured to get an API token"}, status: 500
     end
 
     unless current_user.present?
       return render json: {error: "only authenticated users can request the API token"}, status: 401
     end
 
-    render json: http_auth_response.body, status: http_auth_response.code
-  end
+    api_wrapper = ApiWrapper.new(current_user)
 
-  def httparty
-    HTTParty
-  end
-
-  def http_auth_response
-    @http_response ||= httparty.post(
-      "#{CatarseSettings[:api_host]}/postgrest/tokens",
-      body: {
-        id: current_user.id.to_s,
-        pass: current_user.authentication_token }.to_json,
-      options: {
-        headers: {
-          'Content-Type' => 'application/json' }}
-    )
+    expires_in TOKEN_TTL, public: false
+    render json: {token: api_wrapper.jwt}, status: 200
   end
 end
-

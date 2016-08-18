@@ -1,4 +1,5 @@
 class Projects::ContributionsController < ApplicationController
+  DEFAULT_AMOUNT = 10
   inherit_resources
   actions :index, :show, :new, :update, :review, :create
   skip_before_filter :verify_authenticity_token, only: [:moip]
@@ -30,7 +31,7 @@ class Projects::ContributionsController < ApplicationController
   end
 
   def new
-    @contribution = Contribution.new(project: parent, value: 10)
+    @contribution = Contribution.new(project: parent, value: (params[:amount].presence || DEFAULT_AMOUNT).to_i)
     authorize @contribution
 
     @title = t('projects.contributions.new.title', name: @project.name)
@@ -47,7 +48,7 @@ class Projects::ContributionsController < ApplicationController
     @contribution = parent.contributions.new.localized
     @contribution.user = current_user
     @contribution.value = permitted_params[:value]
-    @contribution.referral_link = referral_link
+    @contribution.origin = Origin.process_hash(referral)
     @contribution.reward_id = (params[:contribution][:reward_id].to_i == 0 ? nil : params[:contribution][:reward_id])
     authorize @contribution
     @contribution.update_current_billing_info
@@ -66,10 +67,36 @@ class Projects::ContributionsController < ApplicationController
     @thank_you_id = @project.id
   end
 
+  def no_account_refund
+    authorize resource
+  end
+
+  def second_slip
+    authorize resource
+    redirect_to resource.details.ordered.first.second_slip_path
+  end
+
+  def receipt
+    authorize resource
+    project = resource.project
+    template = project.successful? ? 'contribution_project_successful' : 'confirm_contribution'
+    render "user_notifier/mailer/#{template}", locals: { contribution: resource }, layout: 'layouts/email'
+  end
+
+  def toggle_anonymous
+    authorize resource
+    resource.toggle!(:anonymous)
+    return render nothing: true
+  end
+
   protected
   def load_rewards
-    empty_reward = Reward.new(minimum_value: 0, description: t('projects.contributions.new.no_reward'))
-    @rewards = [empty_reward] + @project.rewards.remaining.order(:minimum_value)
+    if @project.rewards.present?
+      empty_reward = Reward.new(minimum_value: 0, description: t('projects.contributions.new.no_reward'))
+      @rewards = [empty_reward] + @project.rewards.remaining.order(:minimum_value)
+    else
+      @rewards = []
+    end
   end
 
   def permitted_params

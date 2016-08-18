@@ -2,24 +2,26 @@ class ProjectObserver < ActiveRecord::Observer
   observe :project
 
   def before_save(project)
-    if project.try(:online_date_changed?) || (project.online_date && project.try(:online_days_changed?))
-      project.expires_at = (project.online_date + project.online_days.days).end_of_day
+    if project.is_flexible? && project.mode_was == 'aon' && (project.state.in? ['in_analysis', 'approved'])
+      project.state = 'draft'
+      project.project_transitions.destroy_all
     end
+
+    if project.try(:online_days_changed?) || project.try(:expires_at).nil?
+      project.update_expires_at
+    end
+
+    unless project.permalink.present?
+      project.permalink = "#{project.name.parameterize.gsub(/\-/, '_')}_#{SecureRandom.hex(2)}"
+    end
+
+   project.video_embed_url = nil unless project.video_url.present?
   end
 
   def after_save(project)
     if project.try(:video_url_changed?)
       ProjectDownloaderWorker.perform_async(project.id)
     end
-
-    if project.try(:online_date_changed?) && project.online_date.present? && project.approved?
-      project.remove_scheduled_job('ProjectSchedulerWorker')
-      ProjectSchedulerWorker.perform_at(project.online_date, project.id)
-    end
-  end
-
-  def after_create(project)
-    deliver_default_notification_for(project, :project_received)
   end
 
   def from_draft_to_in_analysis(project)
@@ -28,48 +30,51 @@ class ProjectObserver < ActiveRecord::Observer
       from_name: project.user.display_name
     }, project.new_draft_recipient)
 
-    deliver_default_notification_for(project, :in_analysis_project)
-
-    project.update_attributes({ sent_to_analysis_at: DateTime.current })
   end
 
   def from_online_to_waiting_funds(project)
-    project.notify_owner(:project_in_waiting_funds, { from_email: CatarseSettings[:email_projects] })
     notify_admin_project_will_succeed(project) if project.reached_goal?
   end
 
   def from_waiting_funds_to_successful(project)
-    project.notify_owner(:project_success, from_email: CatarseSettings[:email_projects])
-
     notify_admin_that_project_is_successful(project)
     notify_users(project)
+    project.notify_owner(:project_success)
   end
-
-  def from_in_analysis_to_approved(project)
-    project.notify_owner(:project_approved, { from_email: CatarseSettings[:email_projects] })
-  end
+  alias :from_online_to_successful :from_waiting_funds_to_successful
 
   def from_approved_to_online(project)
-    deliver_default_notification_for(project, :project_visible)
-    project.update_attributes({
-      online_date: DateTime.current,
+    project.update_expires_at
+    project.update_attributes(
       audited_user_name: project.user.name,
       audited_user_cpf: project.user.cpf,
-      audited_user_moip_login: project.user.moip_login,
-      audited_user_phone_number: project.user.phone_number
-    })
+      audited_user_phone_number: project.user.phone_number)
+
+    UserBroadcastWorker.perform_async(
+      follow_id: project.user_id,
+      template_name: 'follow_project_online',
+      project_id: project.id)
+
+    FacebookScrapeReloadWorker.perform_async(project.direct_url)
+  end
+  # Flexible pojects can go direct to online from draft
+  alias :from_draft_to_online :from_approved_to_online
+
+  def from_online_to_draft(project)
+    refund_all_payments(project)
+  end
+
+  def from_online_to_rejected(project)
+    refund_all_payments(project)
+  end
+
+  def from_online_to_deleted(project)
+    refund_all_payments(project)
   end
 
   def from_online_to_failed(project)
     notify_users(project)
-
-    project.payments.with_state('pending').each do |payment|
-      payment.contribution.notify_to_contributor(:pending_contribution_project_unsuccessful)
-    end
-
-    request_refund_for_failed_project(project)
-
-    project.notify_owner(:project_unsuccessful, { from_email: CatarseSettings[:email_projects] })
+    refund_all_payments(project)
   end
 
   def from_waiting_funds_to_failed(project)
@@ -94,19 +99,10 @@ class ProjectObserver < ActiveRecord::Observer
     end
   end
 
-  def request_refund_for_failed_project(project)
+  def refund_all_payments(project)
     project.payments.with_state('paid').each do |payment|
       payment.direct_refund
     end
   end
 
-  def deliver_default_notification_for(project, notification_type)
-    project.notify_owner(
-      notification_type,
-      {
-        from_email: CatarseSettings[:email_projects],
-        from_name: CatarseSettings[:company_name]
-      }
-    )
-  end
 end
